@@ -1,10 +1,7 @@
 {
-  "user_1_id": 10,
-  "user_2_id": 11,
-  "common_interests": [
-    "бег",
-    "спорт"
-  ],
-  "compatibility_percent": 73.47,
-  "status": "MATCH"
+  "raw_code": "460987654321",
+  "ean13": "4609876543213",
+  "check_digit": 3,
+  "pdf_path": "data/barcode_2.pdf",
+  "status": "SUCCESS"
 }

@@ -1,7 +1,7 @@
 {
-  "user_1_id": 20,
-  "user_2_id": 21,
-  "common_interests": [],
-  "compatibility_percent": 10.5,
-  "status": "UNLIKELY"
+  "raw_code": "4006381333931",
+  "ean13": "4006381333931",
+  "check_digit": 1,
+  "pdf_path": "data/barcode_3.pdf",
+  "status": "SUCCESS"
 }

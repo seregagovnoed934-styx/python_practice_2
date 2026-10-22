@@ -1,11 +1,7 @@
 {
-  "user_1_id": 1,
-  "user_2_id": 2,
-  "common_interests": [
-    "кино",
-    "музыка",
-    "туризм"
-  ],
-  "compatibility_percent": 78.46,
-  "status": "MATCH"
+  "raw_code": "460123456789",
+  "ean13": "4601234567893",
+  "check_digit": 3,
+  "pdf_path": "data/barcode_1.pdf",
+  "status": "SUCCESS"
 }

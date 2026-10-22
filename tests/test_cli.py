@@ -1,4 +1,4 @@
-"""Unit tests for the CLI computational tool."""
+"""Unit tests for the EAN-13 barcode PDF generator CLI tool."""
 
 import json
 import os
@@ -6,84 +6,76 @@ import subprocess
 import sys
 import tempfile
 
+import pytest
+
 from src.cli import (
-    calculate_age_score,
-    calculate_distance_score,
-    calculate_interests_score,
-    evaluate_compatibility,
+    compute_ean13_checksum,
+    encode_ean13_bits,
+    generate_barcode_pdf,
     main,
+    normalize_ean13,
 )
 from src.config import (
+    EAN13_LENGTH,
     EXIT_FAILURE,
     EXIT_SUCCESS,
-    ONE,
-    SCORE_EXACT,
-    SCORE_ZERO,
+    EXPECTED_CHECK_DIGIT,
+    STATE_SUCCESS,
+    TOTAL_MODULES,
     ZERO,
 )
 
 
-def test_calculate_age_score() -> None:
-    """Verify age similarity scoring."""
-    score_exact = calculate_age_score(25.0, 25.0)
-    assert score_exact == SCORE_EXACT
+def test_compute_ean13_checksum() -> None:
+    """Verify standard check digit computation."""
+    chk = compute_ean13_checksum("460123456789")
+    assert chk == EXPECTED_CHECK_DIGIT
 
-    score_diff = calculate_age_score(20.0, 45.0)
-    assert score_diff == SCORE_ZERO
-
-
-def test_calculate_interests_score() -> None:
-    """Verify interests Jaccard scoring."""
-    score, common = calculate_interests_score(["a", "b"], ["b", "c"])
-    assert len(common) == ONE
-    assert score > ZERO
-
-    empty_sc, empty_com = calculate_interests_score([], [])
-    assert empty_sc == SCORE_ZERO
-    assert len(empty_com) == ZERO
+    with pytest.raises(ValueError):
+        compute_ean13_checksum("123")
 
 
-def test_calculate_distance_score() -> None:
-    """Verify distance scoring."""
-    score_same = calculate_distance_score(55.0, 37.0, 55.0, 37.0)
-    assert score_same == SCORE_EXACT
+def test_normalize_ean13() -> None:
+    """Verify 12-to-13 digit normalization and validation."""
+    code13 = normalize_ean13("460123456789")
+    assert len(code13) == EAN13_LENGTH
+    assert code13 == "4601234567893"
 
-    score_far = calculate_distance_score(55.0, 37.0, 10.0, 10.0)
-    assert score_far == SCORE_ZERO
+    valid13 = normalize_ean13("4601234567893")
+    assert len(valid13) == EAN13_LENGTH
+
+    with pytest.raises(ValueError):
+        normalize_ean13("4601234567890")
+
+    with pytest.raises(ValueError):
+        normalize_ean13("1234")
 
 
-def test_evaluate_compatibility_levels() -> None:
-    """Verify profile compatibility label thresholds."""
-    prof1 = {"id": 1, "age": 25, "interests": ["a"], "lat": 0.0, "lon": 0.0}
-    prof2 = {"id": 2, "age": 25, "interests": ["a"], "lat": 0.0, "lon": 0.0}
-    res_high = evaluate_compatibility(prof1, prof2)
-    assert res_high["status"] == "MATCH"
+def test_encode_ean13_bits() -> None:
+    """Verify bit encoding pattern and total module length."""
+    bits = encode_ean13_bits("4601234567893")
+    assert len(bits) == TOTAL_MODULES
+    assert bits.startswith("101")
+    assert bits.endswith("101")
 
-    prof3 = {
-        "id": 3,
-        "age": 25,
-        "interests": ["a", "b", "c"],
-        "lat": 0.0,
-        "lon": 0.0,
-    }
-    prof4 = {
-        "id": 4,
-        "age": 27,
-        "interests": ["a", "d", "e"],
-        "lat": 0.5,
-        "lon": 0.5,
-    }
-    res_pot = evaluate_compatibility(prof3, prof4)
-    assert res_pot["status"] == "POTENTIAL"
 
-    prof5 = {"id": 5, "age": 20, "interests": ["x"], "lat": 0.0, "lon": 0.0}
-    prof6 = {"id": 6, "age": 50, "interests": ["y"], "lat": 10.0, "lon": 10.0}
-    res_low = evaluate_compatibility(prof5, prof6)
-    assert res_low["status"] == "UNLIKELY"
+def test_generate_barcode_pdf() -> None:
+    """Verify vector PDF creation and non-empty file write."""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        pdf_path = tmp.name
+
+    try:
+        bits = encode_ean13_bits("4601234567893")
+        generate_barcode_pdf("4601234567893", bits, pdf_path)
+        assert os.path.exists(pdf_path)
+        assert os.path.getsize(pdf_path) > ZERO
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
 
 
 def test_cli_execution_subprocess() -> None:
-    """Verify running CLI tool as subprocess on sample input."""
+    """Verify subprocess execution of CLI on sample input."""
     input_path = os.path.join("data", "input_1.json")
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", delete=False
@@ -109,23 +101,24 @@ def test_cli_execution_subprocess() -> None:
         assert proc.returncode == EXIT_SUCCESS
         with open(out_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        assert data["status"] == "MATCH"
+        assert data["status"] == STATE_SUCCESS
+        assert len(data["ean13"]) == EAN13_LENGTH
     finally:
         if os.path.exists(out_path):
             os.remove(out_path)
 
 
 def test_cli_main_missing_arguments(monkeypatch) -> None:
-    """Verify main function handles missing arguments."""
+    """Verify handling of missing input/output arguments."""
     monkeypatch.setattr(sys, "argv", ["src.cli"])
     code = main()
     assert code == EXIT_FAILURE
 
 
 def test_cli_main_invalid_file(monkeypatch) -> None:
-    """Verify main function handles nonexistent file."""
+    """Verify handling of invalid or missing input file."""
     monkeypatch.setattr(
-        sys, "argv", ["src.cli", "-i", "missing.json", "-o", "out.json"]
+        sys, "argv", ["src.cli", "-i", "nonexistent.json", "-o", "out.json"]
     )
     code = main()
     assert code == EXIT_FAILURE

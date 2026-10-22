@@ -28,6 +28,7 @@ storage_data.json
 *.rar
 *.exe
 *.dll
+*.pdf
 
 # Virtual environment
 venv/

@@ -1,10 +1,7 @@
 {
-  "user_1_id": 40,
-  "user_2_id": 41,
-  "common_interests": [
-    "мотоциклы",
-    "рок-музыка"
-  ],
-  "compatibility_percent": 71.93,
-  "status": "MATCH"
+  "raw_code": "460700177001",
+  "ean13": "4607001770015",
+  "check_digit": 5,
+  "pdf_path": "data/barcode_5.pdf",
+  "status": "SUCCESS"
 }

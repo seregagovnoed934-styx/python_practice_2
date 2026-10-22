@@ -1,10 +1,7 @@
 {
-  "user_1_id": 30,
-  "user_2_id": 31,
-  "common_interests": [
-    "книги",
-    "кофе"
-  ],
-  "compatibility_percent": 65.14,
-  "status": "POTENTIAL"
+  "raw_code": "590123412345",
+  "ean13": "5901234123457",
+  "check_digit": 7,
+  "pdf_path": "data/barcode_4.pdf",
+  "status": "SUCCESS"
 }

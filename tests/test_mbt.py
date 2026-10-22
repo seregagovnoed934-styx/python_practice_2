@@ -173,20 +173,9 @@ class BaseApiStateMachine(RuleBasedStateMachine):
         """Test POST /private/api/stable/message/insert with valid user."""
         sample_input = json.dumps(
             {
-                "user_1": {
-                    "id": 1,
-                    "age": 25,
-                    "interests": ["tech"],
-                    "lat": 55.0,
-                    "lon": 37.0,
-                },
-                "user_2": {
-                    "id": 2,
-                    "age": 26,
-                    "interests": ["tech"],
-                    "lat": 55.0,
-                    "lon": 37.0,
-                },
+                "code": "460123456789",
+                "title": "Item Barcode",
+                "output_pdf": "test_mbt_bar.pdf",
             }
         )
         res = self.client.private_api_stable_message_insert(
@@ -212,20 +201,9 @@ class BaseApiStateMachine(RuleBasedStateMachine):
         """Test POST /private/api/stable/message/insert with orphan message."""
         sample_input = json.dumps(
             {
-                "user_1": {
-                    "id": 10,
-                    "age": 30,
-                    "interests": ["art"],
-                    "lat": 55.0,
-                    "lon": 37.0,
-                },
-                "user_2": {
-                    "id": 11,
-                    "age": 30,
-                    "interests": ["art"],
-                    "lat": 55.0,
-                    "lon": 37.0,
-                },
+                "code": "460987654321",
+                "title": "Orphan Barcode",
+                "output_pdf": "test_mbt_orphan.pdf",
             }
         )
         res = self.client.private_api_stable_message_insert(
