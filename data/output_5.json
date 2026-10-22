@@ -1,0 +1,10 @@
+{
+  "user_1_id": 40,
+  "user_2_id": 41,
+  "common_interests": [
+    "мотоциклы",
+    "рок-музыка"
+  ],
+  "compatibility_percent": 71.93,
+  "status": "MATCH"
+}
