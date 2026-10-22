@@ -1,16 +1,17 @@
 # Практическая работа № 2. Вариант 15
 
 Дисциплина: **Прикладная разработка серверных частей веб-приложений на языке Питон**  
-Группа: **ИКБО-70-24**, РТУ МИРЭА
+Группа: **ИКБО-70-24**, РТУ МИРЭА  
+Тема курсовой работы: **Веб-приложение с HTTP API для асинхронной генерации штрих-кодов EAN-13 в формате PDF**
 
 ---
 
 ## 1. Общее описание
 
-Проект реализует серверное веб-приложение для управления вычислительными задачами и анализа данных предметной области сервиса знакомств (DatingSite).
+Проект реализует серверное веб-приложение для управления вычислительными задачами генерации векторных штрих-кодов международного формата EAN-13 в формате PDF.
 
 ### Архитектура системы:
-- **Этап 1 (Преобразование данных):** Консольная утилита (`src.cli`) для расчета индекса совместимости и скоринга пользовательских анкет по возрасту, интересам (мера Жаккара) и геолокации.
+- **Этап 1 (Преобразование данных):** Консольная утилита (`src.cli`) для вычисления контрольного разряда EAN-13, формирования битовой маски штрих-кода (95 модулей) и генерации векторного PDF-документа на диске.
 - **Этап 2 (HTTP API):** RESTful веб-сервер на базе микрофреймворка `Bottle` с авторизацией по стандарту RFC 7617 (HTTP Basic Authentication), обменом данными в формате XML и интеграцией с CLI-утилитой через модуль `subprocess`. Реализован HTTP-клиент (`src.client.ApiClient`) с именами методов, соответствующими маршрутам API согласно ТЗ. Реализовано Model-Based Testing (MBT) на базе библиотеки `hypothesis` (`RuleBasedStateMachine`).
 - **Этап 3 (Подключение реляционной СУБД SQLite):** Реализация слоя доступа к данным на базе ORM `PonyORM` с СУБД SQLite (`src.storage_pony.PonyStorage`), полная заменяемость файлового хранилища (`src.storage_file.FileStorage`) и верификация MBT тестами.
 
@@ -31,21 +32,22 @@ $$\pi_{C.state, M.description, U.ip} \Big( U \rtimes_{U.identifier = M.user} \Bi
 - `TIME_WINDOW_SECONDS = 540` — временное окно выборки (9 минут).
 - `DEFAULT_HOST = "127.0.0.1"`, `DEFAULT_PORT = 8080` — сетевые параметры.
 - `DEFAULT_USERNAME = "admin"`, `DEFAULT_PASSWORD = "secretpassword"` — учетные данные RFC 7617.
-- `MATCH_THRESHOLD = 70.0`, `POTENTIAL_THRESHOLD = 40.0` — пороги совместимости анкет.
+- `EAN12_LENGTH = 12`, `EAN13_LENGTH = 13` — параметры формата EAN-13.
+- `BAR_WIDTH = 2`, `BAR_HEIGHT = 60` — геометрические параметры штрихов.
 
 ### 2.2 Консольная утилита (`src/cli.py`)
-- `calculate_age_score(age1, age2)` — расчет нормализованной схожести по возрасту.
-- `calculate_interests_score(interests1, interests2)` — коэффициент Жаккара по интересам.
-- `calculate_distance_score(lat1, lon1, lat2, lon2)` — расчет расстояния и нормализованной близости.
-- `evaluate_compatibility(profile1, profile2)` — вычисление общего процента совместимости и статуса (`MATCH`, `POTENTIAL`, `UNLIKELY`).
-- `process_files(input_filepath, output_filepath)` — чтение входного JSON, расчет и запись результата.
+- `compute_ean13_checksum(digits12)` — вычисление контрольного разряда EAN-13 по модулю 10 с весовыми коэффициентами 1 и 3.
+- `normalize_ean13(raw_code)` — валидация 12/13-значного кода и дополнение до 13 цифр.
+- `encode_ean13_bits(ean13)` — кодирование в последовательность 95 битовых модулей (защитные полосы `101`, левые знаки по таблице четности первого разряда, центральный разделитель `01010`, правые знаки).
+- `generate_barcode_pdf(ean13, bits, pdf_path)` — построение и запись векторного PDF-документа со штрих-кодом и числовой подписью.
+- `process_files(input_filepath, output_filepath)` — чтение параметров из JSON, расчет и сохранение результата.
 
 ### 2.3 Обработчики HTTP API (`src/app.py`, Таблица 15)
 Все обработчики требуют заголовок `Authorization: Basic <base64(user:pass)>` и возвращают ответы в формате XML.
 - `POST /private/api/stable/user/insert` — создание пользователя (тело XML: `<user><ip>...</ip><locale>...</locale></user>`).
 - `GET /private/api/stable/user/del` — удаление пользователя по `?identifier=<id>`.
 - `GET /private/api/stable/user/query` — поиск пользователей по параметрам `?identifier=<id>` или `?ip=<ip>`.
-- `POST /private/api/stable/message/insert` — создание задачи сообщения, запуск CLI-утилиты через `subprocess`, создание записи `Completion` и возврат результата.
+- `POST /private/api/stable/message/insert` — создание задачи сообщения, запуск CLI-утилиты генерации PDF через `subprocess`, создание записи `Completion` и возврат результата.
 - `GET /private/api/stable/message/del` — удаление сообщения по `?identifier=<id>`.
 - `GET /private/api/stable/message/query/:user` — получение всех сообщений пользователя `:user`.
 - `GET /private/api/stable/completion/query/:message` — получение результатов выполнения задачи `:message`.
@@ -106,7 +108,7 @@ python -m coverage report -m
 
 ## 4. Примеры использования
 
-### 4.1 Запуск CLI-утилиты
+### 4.1 Запуск CLI-утилиты генерации PDF со штрих-кодом
 ```bash
 python -m src.cli -i data/input_1.json -o data/output_1.json
 ```
@@ -114,38 +116,23 @@ python -m src.cli -i data/input_1.json -o data/output_1.json
 Содержимое `data/input_1.json`:
 ```json
 {
-  "user_1": {
-    "id": 1,
-    "name": "Алексей",
-    "age": 25,
-    "interests": ["кино", "музыка", "туризм"],
-    "lat": 55.7558,
-    "lon": 37.6173
-  },
-  "user_2": {
-    "id": 2,
-    "name": "Екатерина",
-    "age": 24,
-    "interests": ["музыка", "туризм", "дизайн"],
-    "lat": 55.7600,
-    "lon": 37.6250
-  }
+  "code": "460123456789",
+  "title": "Молоко пастеризованное 3.2%",
+  "output_pdf": "data/barcode_1.pdf"
 }
 ```
 
 Результат в `data/output_1.json`:
 ```json
 {
-  "user_1_id": 1,
-  "user_2_id": 2,
-  "common_interests": [
-    "музыка",
-    "туризм"
-  ],
-  "compatibility_percent": 78.46,
-  "status": "MATCH"
+  "raw_code": "460123456789",
+  "ean13": "4601234567893",
+  "check_digit": 3,
+  "pdf_path": "data/barcode_1.pdf",
+  "status": "SUCCESS"
 }
 ```
+Файл `data/barcode_1.pdf` содержит векторный штрих-код формата EAN-13.
 
 ### 4.2 Запуск веб-сервера HTTP API
 ```bash
@@ -162,12 +149,12 @@ client = ApiClient("http://127.0.0.1:8080", username="admin", password="secretpa
 user = client.private_api_stable_user_insert(ip="192.168.1.100", locale="ru-RU")
 user_id = user["identifier"]
 
-# 2. Создание задачи (выполняется CLI-утилита)
-task_input = '{"user_1": {"id": 1, "age": 25, "interests": ["спорт"], "lat": 55.0, "lon": 37.0}, "user_2": {"id": 2, "age": 25, "interests": ["спорт"], "lat": 55.0, "lon": 37.0}}'
+# 2. Создание задачи генерации штрих-кода в PDF
+task_input = '{"code": "460123456789", "output_pdf": "result.pdf"}'
 msg = client.private_api_stable_message_insert(
     user=user_id,
     input_data=task_input,
-    description="Скоринг анкет",
+    description="Генерация EAN-13 в PDF",
     triggered=1
 )
 
