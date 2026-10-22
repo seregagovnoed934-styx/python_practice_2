@@ -13,7 +13,9 @@ from src.config import (
     MAX_AGE_DIFF,
     MAX_DISTANCE_KM,
     MAX_PERCENT,
+    MAX_SCORE_RATIO,
     MIN_INTERESTS_COUNT,
+    MIN_SCORE_RATIO,
     POTENTIAL_THRESHOLD,
     SCORE_WEIGHT_AGE,
     SCORE_WEIGHT_DISTANCE,
@@ -26,9 +28,9 @@ def calculate_age_score(age1: float, age2: float) -> float:
     """Calculate normalized score based on age difference."""
     diff = abs(age1 - age2)
     ratio = diff / MAX_AGE_DIFF
-    if ratio > 1.0:
-        return 0.0
-    return 1.0 - ratio
+    if ratio > MAX_SCORE_RATIO:
+        return MIN_SCORE_RATIO
+    return MAX_SCORE_RATIO - ratio
 
 
 def calculate_interests_score(
@@ -40,7 +42,7 @@ def calculate_interests_score(
     common = sorted(list(set1.intersection(set2)))
     union = set1.union(set2)
     if len(union) == MIN_INTERESTS_COUNT:
-        return 0.0, common
+        return MIN_SCORE_RATIO, common
     score = len(common) / len(union)
     return score, common
 
@@ -53,9 +55,9 @@ def calculate_distance_score(
     dlon = lon1 - lon2
     approx_km = math.sqrt(dlat * dlat + dlon * dlon) * 111.0
     ratio = approx_km / MAX_DISTANCE_KM
-    if ratio > 1.0:
-        return 0.0
-    return 1.0 - ratio
+    if ratio > MAX_SCORE_RATIO:
+        return MIN_SCORE_RATIO
+    return MAX_SCORE_RATIO - ratio
 
 
 def evaluate_compatibility(

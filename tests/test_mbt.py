@@ -1,6 +1,7 @@
 """Model-Based Testing for HTTP API using Hypothesis state machine."""
 
 import json
+import os
 import socket
 import threading
 import time
@@ -306,9 +307,7 @@ class FileStorageStateMachine(BaseApiStateMachine):
     runner = file_server_runner
 
 
-pony_storage_instance = PonyStorage(
-    "file:pony_mbt_db?mode=memory&cache=shared"
-)
+pony_storage_instance = PonyStorage("test_mbt_pony.sqlite3")
 pony_server_runner = ServerRunner(pony_storage_instance, test_mode=True)
 
 
@@ -336,3 +335,9 @@ def teardown_module() -> None:
     pony_server_runner.stop()
     file_storage_instance.clear()
     pony_storage_instance.clear()
+    for fname in ("test_mbt_file.json", "test_mbt_pony.sqlite3"):
+        if os.path.exists(fname):
+            try:
+                os.remove(fname)
+            except OSError:
+                pass

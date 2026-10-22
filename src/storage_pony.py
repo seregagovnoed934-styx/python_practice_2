@@ -21,11 +21,8 @@ from src.config import (
 from src.models import Completion, Message, ReportItem, User
 
 
-def create_pony_db(
-    db_path: str = "file:pony_shared_db?mode=memory&cache=shared",
-) -> Database:
-    """Instantiate and bind Pony Database."""
-    db = Database()
+def define_entities(db: Database) -> None:
+    """Define PonyORM database entity classes."""
 
     class UserEntity(db.Entity):
         """User table entity."""
@@ -63,6 +60,11 @@ def create_pony_db(
         cache_hit = Required(int)
         duration = Required(int)
 
+
+def create_pony_db(db_path: str = "pony_storage.sqlite3") -> Database:
+    """Instantiate and bind Pony Database."""
+    db = Database()
+    define_entities(db)
     db.bind(provider="sqlite", filename=db_path, create_db=True)
     db.generate_mapping(create_tables=True)
     return db
@@ -71,9 +73,7 @@ def create_pony_db(
 class PonyStorage:
     """Database storage engine based on SQLite and PonyORM."""
 
-    def __init__(
-        self, db_path: str = "file:pony_shared_db?mode=memory&cache=shared"
-    ):
+    def __init__(self, db_path: str = "pony_storage.sqlite3"):
         """Initialize Pony database engine with file or memory path."""
         self.db_path = db_path
         self.db = create_pony_db(db_path)

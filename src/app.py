@@ -84,14 +84,8 @@ def run_cli_task(input_content: str) -> tuple[str, str, int, str]:
                 os.remove(p)
 
 
-def create_app(
-    storage,
-    username: str = DEFAULT_USERNAME,
-    password: str = DEFAULT_PASSWORD,
-    test_mode: bool = False,
-) -> Bottle:
-    """Create and configure Bottle application instance."""
-    app = Bottle()
+def make_auth_checker(username: str, password: str):
+    """Build authentication check callback."""
 
     def auth_required() -> Optional[HTTPResponse]:
         hdr = request.headers.get("Authorization")
@@ -105,9 +99,15 @@ def create_app(
             return resp
         return None
 
+    return auth_required
+
+
+def register_user_insert(app: Bottle, storage, check_auth) -> None:
+    """Register user insert route handler on Bottle app."""
+
     @app.route("/private/api/stable/user/insert", method="POST")
     def user_insert():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -120,9 +120,13 @@ def create_app(
             response.status = STATUS_BAD_REQUEST
             return serialize_action_status("error", str(exc))
 
+
+def register_user_del_and_query(app: Bottle, storage, check_auth) -> None:
+    """Register user delete and query route handlers."""
+
     @app.route("/private/api/stable/user/del", method="GET")
     def user_del():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -136,7 +140,7 @@ def create_app(
 
     @app.route("/private/api/stable/user/query", method="GET")
     def user_query():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -146,9 +150,25 @@ def create_app(
         users = storage.get_users(identifier=uid, ip=ip_val)
         return serialize_users(users)
 
+
+def _exec_message_task(
+    input_str: str, test_mode: bool
+) -> tuple[str, str, int, str]:
+    """Execute computation task or return mock for testing."""
+    if test_mode:
+        res_str = json.dumps({"status": "MATCH", "test": True})
+        return res_str, STATE_SUCCESS, ZERO, ""
+    return run_cli_task(input_str)
+
+
+def register_message_insert(
+    app: Bottle, storage, check_auth, test_mode: bool
+) -> None:
+    """Register message insert route handler on Bottle app."""
+
     @app.route("/private/api/stable/message/insert", method="POST")
     def message_insert():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -161,14 +181,9 @@ def create_app(
                 description=data["description"],
                 triggered=data["triggered"],
             )
-            if test_mode:
-                res_str = json.dumps({"status": "MATCH", "test": True})
-                st_val = STATE_SUCCESS
-                dur = ZERO
-                fail_str = ""
-            else:
-                res_str, st_val, dur, fail_str = run_cli_task(msg.input)
-
+            res_str, st_val, dur, fail_str = _exec_message_task(
+                msg.input, test_mode
+            )
             comp = storage.add_completion(
                 message_id=msg.identifier,
                 result=res_str,
@@ -185,9 +200,13 @@ def create_app(
             response.status = STATUS_BAD_REQUEST
             return serialize_action_status("error", str(exc))
 
+
+def register_message_del_and_query(app: Bottle, storage, check_auth) -> None:
+    """Register message delete and query route handlers."""
+
     @app.route("/private/api/stable/message/del", method="GET")
     def message_del():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -201,18 +220,22 @@ def create_app(
 
     @app.route("/private/api/stable/message/query/<user_id:int>", method="GET")
     def message_query(user_id: int):
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
         messages = storage.get_messages(user_id=user_id)
         return serialize_messages(messages)
 
+
+def register_query_routes(app: Bottle, storage, check_auth) -> None:
+    """Register completion and report query route handlers."""
+
     @app.route(
         "/private/api/stable/completion/query/<message_id:int>", method="GET"
     )
     def completion_query(message_id: int):
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
@@ -221,13 +244,28 @@ def create_app(
 
     @app.route("/private/api/stable/report/query", method="GET")
     def report_query():
-        err = auth_required()
+        err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
         report_data = storage.get_report()
         return serialize_report(report_data)
 
+
+def create_app(
+    storage,
+    username: str = DEFAULT_USERNAME,
+    password: str = DEFAULT_PASSWORD,
+    test_mode: bool = False,
+) -> Bottle:
+    """Create and configure Bottle application instance."""
+    app = Bottle()
+    check_auth = make_auth_checker(username, password)
+    register_user_insert(app, storage, check_auth)
+    register_user_del_and_query(app, storage, check_auth)
+    register_message_insert(app, storage, check_auth, test_mode)
+    register_message_del_and_query(app, storage, check_auth)
+    register_query_routes(app, storage, check_auth)
     return app
 
 

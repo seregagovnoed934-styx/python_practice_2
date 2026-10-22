@@ -13,36 +13,43 @@ from src.cli import (
     evaluate_compatibility,
     main,
 )
-from src.config import EXIT_FAILURE, EXIT_SUCCESS, ZERO
+from src.config import (
+    EXIT_FAILURE,
+    EXIT_SUCCESS,
+    ONE,
+    SCORE_EXACT,
+    SCORE_ZERO,
+    ZERO,
+)
 
 
 def test_calculate_age_score() -> None:
     """Verify age similarity scoring."""
     score_exact = calculate_age_score(25.0, 25.0)
-    assert score_exact == 1.0
+    assert score_exact == SCORE_EXACT
 
     score_diff = calculate_age_score(20.0, 45.0)
-    assert score_diff == 0.0
+    assert score_diff == SCORE_ZERO
 
 
 def test_calculate_interests_score() -> None:
     """Verify interests Jaccard scoring."""
     score, common = calculate_interests_score(["a", "b"], ["b", "c"])
-    assert len(common) == 1
+    assert len(common) == ONE
     assert score > ZERO
 
     empty_sc, empty_com = calculate_interests_score([], [])
-    assert empty_sc == 0.0
+    assert empty_sc == SCORE_ZERO
     assert len(empty_com) == ZERO
 
 
 def test_calculate_distance_score() -> None:
     """Verify distance scoring."""
     score_same = calculate_distance_score(55.0, 37.0, 55.0, 37.0)
-    assert score_same == 1.0
+    assert score_same == SCORE_EXACT
 
     score_far = calculate_distance_score(55.0, 37.0, 10.0, 10.0)
-    assert score_far == 0.0
+    assert score_far == SCORE_ZERO
 
 
 def test_evaluate_compatibility_levels() -> None:
