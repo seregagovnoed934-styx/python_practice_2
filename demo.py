@@ -10,12 +10,8 @@ from src.config import (
 )
 
 
-def run_demo() -> None:
-    """Run full demonstration of API methods with live output."""
-    url = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
-    print(f"Connecting to API at {url}...")
-    client = ApiClient(url, DEFAULT_USERNAME, DEFAULT_PASSWORD)
-
+def demo_users_and_task(client: ApiClient) -> int:
+    """Demonstrate user creation and barcode message generation."""
     print("\n--- 1. Создание пользователя (POST /user/insert) ---")
     user = client.private_api_stable_user_insert("192.168.1.50", "ru-RU")
     print("Создан пользователь:", user)
@@ -41,10 +37,20 @@ def run_demo() -> None:
     )
     print("Создано сообщение и результат выполнения задачи:")
     print(json.dumps(msg, indent=2, ensure_ascii=False))
+    print("Файл PDF успешно создан: data/demo_barcode.pdf")
+    return uid
 
+
+def demo_report_and_auth(client: ApiClient, url: str) -> None:
+    """Demonstrate relational report query and authentication check."""
     print("\n--- 4. Получение отчета по Формуле (15) (GET /report/query) ---")
+    st_rep, raw_xml_rep = client._send(
+        "GET", "/private/api/stable/report/query"
+    )
+    print("Сырой XML ответа сервера по формуле (15):")
+    print(raw_xml_rep)
     report = client.private_api_stable_report_query()
-    print("Сформированный отчет:")
+    print("Распарсенные данные отчёта:")
     for item in report:
         st_val = item["state"]
         desc_val = item["description"]
@@ -57,6 +63,14 @@ def run_demo() -> None:
     print(f"Код ответа при неверном пароле: {st} (Ожидается 401)")
     print("Тело ответа сервера:", resp)
 
+
+def run_demo() -> None:
+    """Run full demonstration of API methods with live output."""
+    url = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
+    print(f"Connecting to API at {url}...")
+    client = ApiClient(url, DEFAULT_USERNAME, DEFAULT_PASSWORD)
+    demo_users_and_task(client)
+    demo_report_and_auth(client, url)
     print("\n=== Демонстрация успешно завершена! ===")
 
 
