@@ -9,64 +9,37 @@ import tempfile
 import pytest
 
 from src.cli import (
-    compute_ean13_checksum,
-    encode_ean13_bits,
+    compute_ean13_code,
     generate_barcode_pdf,
     main,
-    normalize_ean13,
 )
 from src.config import (
     EAN13_LENGTH,
     EXIT_FAILURE,
     EXIT_SUCCESS,
-    EXPECTED_CHECK_DIGIT,
     STATE_SUCCESS,
-    TOTAL_MODULES,
     ZERO,
 )
 
 
-def test_compute_ean13_checksum() -> None:
-    """Verify standard check digit computation."""
-    chk = compute_ean13_checksum("460123456789")
-    assert chk == EXPECTED_CHECK_DIGIT
-
-    with pytest.raises(ValueError):
-        compute_ean13_checksum("123")
-
-
-def test_normalize_ean13() -> None:
-    """Verify 12-to-13 digit normalization and validation."""
-    code13 = normalize_ean13("460123456789")
+def test_compute_ean13_code() -> None:
+    """Verify standard check digit computation via barcode library."""
+    code13 = compute_ean13_code("460123456789")
     assert len(code13) == EAN13_LENGTH
     assert code13 == "4601234567893"
 
-    valid13 = normalize_ean13("4601234567893")
-    assert len(valid13) == EAN13_LENGTH
-
     with pytest.raises(ValueError):
-        normalize_ean13("4601234567890")
-
-    with pytest.raises(ValueError):
-        normalize_ean13("1234")
-
-
-def test_encode_ean13_bits() -> None:
-    """Verify bit encoding pattern and total module length."""
-    bits = encode_ean13_bits("4601234567893")
-    assert len(bits) == TOTAL_MODULES
-    assert bits.startswith("101")
-    assert bits.endswith("101")
+        compute_ean13_code("123")
 
 
 def test_generate_barcode_pdf() -> None:
-    """Verify vector PDF creation and non-empty file write."""
+    """Verify barcode PDF creation via python-barcode and ImageWriter."""
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         pdf_path = tmp.name
 
     try:
-        bits = encode_ean13_bits("4601234567893")
-        generate_barcode_pdf("4601234567893", bits, pdf_path)
+        full_ean = generate_barcode_pdf("460123456789", pdf_path)
+        assert len(full_ean) == EAN13_LENGTH
         assert os.path.exists(pdf_path)
         assert os.path.getsize(pdf_path) > ZERO
     finally:
