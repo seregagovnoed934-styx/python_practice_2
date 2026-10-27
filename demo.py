@@ -10,7 +10,7 @@ from src.config import (
 )
 
 
-def demo_users_and_task(client: ApiClient) -> int:
+def demo_users_and_task(client: ApiClient) -> tuple[int, int]:
     """Demonstrate user creation and barcode message generation."""
     print("\n--- 1. Создание пользователя (POST /user/insert) ---")
     user = client.private_api_stable_user_insert("192.168.1.50", "ru-RU")
@@ -38,12 +38,31 @@ def demo_users_and_task(client: ApiClient) -> int:
     print("Создано сообщение и результат выполнения задачи:")
     print(json.dumps(msg, indent=2, ensure_ascii=False))
     print("Файл PDF успешно создан: data/demo_barcode.pdf")
-    return uid
+    return uid, msg["message_id"]
+
+
+def demo_queries_and_del(client: ApiClient, uid: int, mid: int) -> None:
+    """Demonstrate query by path param and deletion handlers."""
+    print("\n--- 4. Поиск сообщений (GET /message/query/:user) ---")
+    msgs = client.private_api_stable_message_query_user(uid)
+    print(f"Найдено сообщений пользователя {uid}: {len(msgs)}")
+
+    print("\n--- 5. Поиск завершения (GET /completion/query/:message) ---")
+    comps = client.private_api_stable_completion_query_message(mid)
+    print(f"Найдено результатов для сообщения {mid}: {len(comps)}")
+
+    print("\n--- 6. Удаление сообщения (GET /message/del) ---")
+    del_msg_res = client.private_api_stable_message_del(mid)
+    print(f"Статус удаления сообщения {mid}:", del_msg_res)
+
+    print("\n--- 7. Удаление пользователя (GET /user/del) ---")
+    del_u_res = client.private_api_stable_user_del(uid)
+    print(f"Статус удаления пользователя {uid}:", del_u_res)
 
 
 def demo_report_and_auth(client: ApiClient, url: str) -> None:
     """Demonstrate relational report query and authentication check."""
-    print("\n--- 4. Получение отчета по Формуле (15) (GET /report/query) ---")
+    print("\n--- 8. Получение отчета по Формуле (15) (GET /report/query) ---")
     st_rep, raw_xml_rep = client._send(
         "GET", "/private/api/stable/report/query"
     )
@@ -57,7 +76,7 @@ def demo_report_and_auth(client: ApiClient, url: str) -> None:
         ip_val = item["ip"]
         print(f"  Статус: {st_val} | Задача: {desc_val} | IP: {ip_val}")
 
-    print("\n--- 5. Проверка неавторизованного доступа (401) ---")
+    print("\n--- 9. Проверка неавторизованного доступа (401) ---")
     bad_client = ApiClient(url, "hacker", "wrong_pass")
     st, resp = bad_client._send("GET", "/private/api/stable/report/query")
     print(f"Код ответа при неверном пароле: {st} (Ожидается 401)")
@@ -69,9 +88,10 @@ def run_demo() -> None:
     url = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
     print(f"Connecting to API at {url}...")
     client = ApiClient(url, DEFAULT_USERNAME, DEFAULT_PASSWORD)
-    demo_users_and_task(client)
+    uid, mid = demo_users_and_task(client)
     demo_report_and_auth(client, url)
-    print("\n=== Демонстрация успешно завершена! ===")
+    demo_queries_and_del(client, uid, mid)
+    print("\n=== Демонстрация всех 8 методов успешно завершена! ===")
 
 
 if __name__ == "__main__":

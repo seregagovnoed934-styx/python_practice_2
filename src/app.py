@@ -218,13 +218,15 @@ def register_message_del_and_query(app: Bottle, storage, check_auth) -> None:
         st = "ok" if success else "not_found"
         return serialize_action_status(st)
 
-    @app.route("/private/api/stable/message/query/<user_id:int>", method="GET")
-    def message_query(user_id: int):
+    @app.route("/private/api/stable/message/query/<user:int>", method="GET")
+    def message_query(user: int):
         err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
-        messages = storage.get_messages(user_id=user_id)
+        raw_id = request.query.get("identifier")
+        mid = int(raw_id) if raw_id else None
+        messages = storage.get_messages(user_id=user, identifier=mid)
         return serialize_messages(messages)
 
 
@@ -232,14 +234,16 @@ def register_query_routes(app: Bottle, storage, check_auth) -> None:
     """Register completion and report query route handlers."""
 
     @app.route(
-        "/private/api/stable/completion/query/<message_id:int>", method="GET"
+        "/private/api/stable/completion/query/<message:int>", method="GET"
     )
-    def completion_query(message_id: int):
+    def completion_query(message: int):
         err = check_auth()
         if err:
             return err
         response.content_type = "text/xml; charset=utf-8"
-        comps = storage.get_completions(message_id=message_id)
+        raw_id = request.query.get("identifier")
+        cid = int(raw_id) if raw_id else None
+        comps = storage.get_completions(message_id=message, identifier=cid)
         return serialize_completions(comps)
 
     @app.route("/private/api/stable/report/query", method="GET")
