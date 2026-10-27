@@ -281,3 +281,26 @@ class PonyStorage:
                         )
                     )
             return report_items
+
+
+def main() -> None:
+    """Demonstrate PonyORM database operations."""
+    print("Testing PonyStorage with SQLite...")
+    st = PonyStorage(":memory:")
+    u = st.add_user("127.0.0.1", "ru-RU")
+    print(f"Created user: id={u.identifier}, ip={u.ip}")
+    msg = st.add_message(u.identifier, "460123456789", "Milk", 1)
+    print(f"Created message: id={msg.identifier}, desc={msg.description}")
+    comp = st.add_completion(msg.identifier, "SUCCESS", "SUCCESS", "", 0, 15)
+    print(f"Created completion: id={comp.identifier}, state={comp.state}")
+    rep = st.get_report()
+    print(f"Report query items count: {len(rep)}")
+    for item in rep:
+        print(
+            f"  state={item.state}, desc={item.description}, ip={item.ip}"
+        )
+    print("PonyStorage test successfully passed!")
+
+
+if __name__ == "__main__":
+    main()
