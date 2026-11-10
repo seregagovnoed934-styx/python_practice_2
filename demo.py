@@ -53,11 +53,11 @@ def demo_queries_and_del(client: ApiClient, uid: int, mid: int) -> None:
 
     print("\n--- 6. Удаление сообщения (GET /message/del) ---")
     del_msg_res = client.private_api_stable_message_del(mid)
-    print(f"Статус удаления сообщения {mid}:", del_msg_res)
+    print("Статус удаления сообщения {}:".format(mid), del_msg_res)
 
     print("\n--- 7. Удаление пользователя (GET /user/del) ---")
     del_u_res = client.private_api_stable_user_del(uid)
-    print(f"Статус удаления пользователя {uid}:", del_u_res)
+    print("Статус удаления пользователя {}:".format(uid), del_u_res)
 
 
 def demo_report_and_auth(client: ApiClient, url: str) -> None:
@@ -85,7 +85,7 @@ def demo_report_and_auth(client: ApiClient, url: str) -> None:
 
 def run_demo() -> None:
     """Run full demonstration of API methods with live output."""
-    url = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
+    url = "http://{}:{}".format(DEFAULT_HOST, DEFAULT_PORT)
     print(f"Connecting to API at {url}...")
     client = ApiClient(url, DEFAULT_USERNAME, DEFAULT_PASSWORD)
     uid, mid = demo_users_and_task(client)

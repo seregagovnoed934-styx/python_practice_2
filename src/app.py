@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from typing import Optional
+from xml.etree.ElementTree import Element, tostring
 
 from bottle import Bottle, HTTPResponse, request, response
 
@@ -37,7 +38,6 @@ from src.models import (
     serialize_users,
 )
 from src.storage_file import FileStorage
-import xml.etree.ElementTree as ET
 
 
 def check_basic_auth(
@@ -192,10 +192,10 @@ def register_message_insert(
                 cache_hit=ZERO,
                 duration=dur,
             )
-            root = ET.Element("response")
+            root = Element("response")
             root.append(message_to_xml_element(msg))
             root.append(completion_to_xml_element(comp))
-            return ET.tostring(root, encoding="utf-8").decode("utf-8")
+            return tostring(root, encoding="utf-8").decode("utf-8")
         except Exception as exc:
             response.status = STATUS_BAD_REQUEST
             return serialize_action_status("error", str(exc))

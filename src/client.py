@@ -5,7 +5,7 @@ from typing import Any, Optional
 import urllib.error
 import urllib.parse
 import urllib.request
-import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
 
 from src.config import (
     DEFAULT_HOST,
@@ -29,7 +29,7 @@ class ApiClient:
     ):
         """Initialize HTTP client with target endpoint and credentials."""
         self.base_url = (
-            base_url or f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
+            base_url or "http://{}:{}".format(DEFAULT_HOST, DEFAULT_PORT)
         ).rstrip("/")
         self.username = username
         self.password = password
@@ -37,7 +37,7 @@ class ApiClient:
 
     def _get_auth_header(self) -> str:
         """Construct RFC 7617 Basic Authentication header value."""
-        raw = f"{self.username}:{self.password}".encode("utf-8")
+        raw = "{}:{}".format(self.username, self.password).encode("utf-8")
         token = base64.b64encode(raw).decode("utf-8")
         return f"Basic {token}"
 
@@ -75,16 +75,16 @@ class ApiClient:
         self, ip: str, locale: str
     ) -> dict[str, Any]:
         """Insert new user record via POST /private/api/stable/user/insert."""
-        elem = ET.Element("user")
-        ET.SubElement(elem, "ip").text = ip
-        ET.SubElement(elem, "locale").text = locale
-        xml_body = ET.tostring(elem, encoding="utf-8").decode("utf-8")
+        elem = Element("user")
+        SubElement(elem, "ip").text = ip
+        SubElement(elem, "locale").text = locale
+        xml_body = tostring(elem, encoding="utf-8").decode("utf-8")
         st, text = self._send(
             "POST", "/private/api/stable/user/insert", xml_body
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         return {
             "identifier": int(root.findtext("identifier", "0")),
             "time": int(root.findtext("time", "0")),
@@ -101,7 +101,7 @@ class ApiClient:
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         return {"status": root.findtext("status", "")}
 
     def private_api_stable_user_query(
@@ -117,7 +117,7 @@ class ApiClient:
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         res = []
         for u in root.findall("user"):
             res.append(
@@ -138,18 +138,18 @@ class ApiClient:
         triggered: int,
     ) -> dict[str, Any]:
         """Insert message via POST /private/api/stable/message/insert."""
-        elem = ET.Element("message")
-        ET.SubElement(elem, "user").text = str(user)
-        ET.SubElement(elem, "input").text = input_data
-        ET.SubElement(elem, "description").text = description
-        ET.SubElement(elem, "triggered").text = str(triggered)
-        xml_body = ET.tostring(elem, encoding="utf-8").decode("utf-8")
+        elem = Element("message")
+        SubElement(elem, "user").text = str(user)
+        SubElement(elem, "input").text = input_data
+        SubElement(elem, "description").text = description
+        SubElement(elem, "triggered").text = str(triggered)
+        xml_body = tostring(elem, encoding="utf-8").decode("utf-8")
         st, text = self._send(
             "POST", "/private/api/stable/message/insert", xml_body
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         m_elem = root.find("message")
         c_elem = root.find("completion")
         return {
@@ -170,7 +170,7 @@ class ApiClient:
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         return {"status": root.findtext("status", "")}
 
     def private_api_stable_message_query_user(
@@ -182,7 +182,7 @@ class ApiClient:
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         res = []
         for m in root.findall("message"):
             res.append(
@@ -206,7 +206,7 @@ class ApiClient:
         )
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         res = []
         for c in root.findall("completion"):
             res.append(
@@ -228,7 +228,7 @@ class ApiClient:
         st, text = self._send("GET", "/private/api/stable/report/query")
         if st != STATUS_OK:
             raise RuntimeError(f"HTTP {st}: {text}")
-        root = ET.fromstring(text)
+        root = fromstring(text)
         res = []
         for it in root.findall("item"):
             res.append(

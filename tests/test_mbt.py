@@ -111,7 +111,7 @@ class BaseApiStateMachine(RuleBasedStateMachine):
         super().__init__()
         self.storage.clear()
         self.client = ApiClient(
-            base_url=f"http://{DEFAULT_HOST}:{self.runner.port}",
+            base_url="http://{}:{}".format(DEFAULT_HOST, self.runner.port),
             username=DEFAULT_USERNAME,
             password=DEFAULT_PASSWORD,
         )
@@ -244,7 +244,7 @@ class BaseApiStateMachine(RuleBasedStateMachine):
     def rule_exercise_error_branches(self) -> None:
         """Exercise error handling branches to maximize branch coverage."""
         unauth_client = ApiClient(
-            base_url=f"http://{DEFAULT_HOST}:{self.runner.port}",
+            base_url="http://{}:{}".format(DEFAULT_HOST, self.runner.port),
             username="bad_user",
             password="bad_password",
         )

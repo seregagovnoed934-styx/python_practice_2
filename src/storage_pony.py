@@ -3,9 +3,9 @@
 import time
 from typing import Optional
 
+from pony import orm
 from pony.orm import (
     Database,
-    Optional as PonyOpt,
     PrimaryKey,
     Required,
     Set,
@@ -30,8 +30,8 @@ def define_entities(db: Database) -> None:
         _table_ = "users"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        ip = PonyOpt(str, default="")
-        locale = PonyOpt(str, default="")
+        ip = orm.Optional(str, default="")
+        locale = orm.Optional(str, default="")
         messages = Set("MessageEntity")
 
     class MessageEntity(db.Entity):
@@ -40,10 +40,10 @@ def define_entities(db: Database) -> None:
         _table_ = "messages"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        input_data = PonyOpt(str, default="")
+        input_data = orm.Optional(str, default="")
         user_id = Required(int)
-        user = PonyOpt(UserEntity)
-        description = PonyOpt(str, default="")
+        user = orm.Optional(UserEntity)
+        description = orm.Optional(str, default="")
         triggered = Required(int)
         completions = Set("CompletionEntity")
 
@@ -53,9 +53,9 @@ def define_entities(db: Database) -> None:
         _table_ = "completions"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        result = PonyOpt(str, default="")
+        result = orm.Optional(str, default="")
         state = Required(str)
-        failure = PonyOpt(str, default="")
+        failure = orm.Optional(str, default="")
         message = Required(MessageEntity)
         cache_hit = Required(int)
         duration = Required(int)

@@ -1,8 +1,8 @@
 """Data models and XML serialization utilities."""
 
 from dataclasses import dataclass
-import xml.etree.ElementTree as ET
 from typing import Optional
+from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
 
 from src.config import ZERO
 
@@ -52,95 +52,95 @@ class ReportItem:
     ip: str
 
 
-def user_to_xml_element(user: User) -> ET.Element:
+def user_to_xml_element(user: User) -> Element:
     """Convert User instance to XML element."""
-    elem = ET.Element("user")
-    ET.SubElement(elem, "identifier").text = str(user.identifier)
-    ET.SubElement(elem, "time").text = str(user.time)
-    ET.SubElement(elem, "ip").text = user.ip
-    ET.SubElement(elem, "locale").text = user.locale
+    elem = Element("user")
+    SubElement(elem, "identifier").text = str(user.identifier)
+    SubElement(elem, "time").text = str(user.time)
+    SubElement(elem, "ip").text = user.ip
+    SubElement(elem, "locale").text = user.locale
     return elem
 
 
-def message_to_xml_element(msg: Message) -> ET.Element:
+def message_to_xml_element(msg: Message) -> Element:
     """Convert Message instance to XML element."""
-    elem = ET.Element("message")
-    ET.SubElement(elem, "identifier").text = str(msg.identifier)
-    ET.SubElement(elem, "time").text = str(msg.time)
-    ET.SubElement(elem, "input").text = msg.input
-    ET.SubElement(elem, "user").text = str(msg.user)
-    ET.SubElement(elem, "description").text = msg.description
-    ET.SubElement(elem, "triggered").text = str(msg.triggered)
+    elem = Element("message")
+    SubElement(elem, "identifier").text = str(msg.identifier)
+    SubElement(elem, "time").text = str(msg.time)
+    SubElement(elem, "input").text = msg.input
+    SubElement(elem, "user").text = str(msg.user)
+    SubElement(elem, "description").text = msg.description
+    SubElement(elem, "triggered").text = str(msg.triggered)
     return elem
 
 
-def completion_to_xml_element(comp: Completion) -> ET.Element:
+def completion_to_xml_element(comp: Completion) -> Element:
     """Convert Completion instance to XML element."""
-    elem = ET.Element("completion")
-    ET.SubElement(elem, "identifier").text = str(comp.identifier)
-    ET.SubElement(elem, "time").text = str(comp.time)
-    ET.SubElement(elem, "result").text = comp.result
-    ET.SubElement(elem, "state").text = comp.state
-    ET.SubElement(elem, "failure").text = comp.failure
-    ET.SubElement(elem, "message").text = str(comp.message)
-    ET.SubElement(elem, "cache_hit").text = str(comp.cache_hit)
-    ET.SubElement(elem, "duration").text = str(comp.duration)
+    elem = Element("completion")
+    SubElement(elem, "identifier").text = str(comp.identifier)
+    SubElement(elem, "time").text = str(comp.time)
+    SubElement(elem, "result").text = comp.result
+    SubElement(elem, "state").text = comp.state
+    SubElement(elem, "failure").text = comp.failure
+    SubElement(elem, "message").text = str(comp.message)
+    SubElement(elem, "cache_hit").text = str(comp.cache_hit)
+    SubElement(elem, "duration").text = str(comp.duration)
     return elem
 
 
 def serialize_user(user: User) -> str:
     """Serialize User instance to XML string."""
     elem = user_to_xml_element(user)
-    return ET.tostring(elem, encoding="utf-8").decode("utf-8")
+    return tostring(elem, encoding="utf-8").decode("utf-8")
 
 
 def serialize_users(users: list[User]) -> str:
     """Serialize list of users to XML string."""
-    root = ET.Element("users")
+    root = Element("users")
     for u in users:
         root.append(user_to_xml_element(u))
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+    return tostring(root, encoding="utf-8").decode("utf-8")
 
 
 def serialize_messages(messages: list[Message]) -> str:
     """Serialize list of messages to XML string."""
-    root = ET.Element("messages")
+    root = Element("messages")
     for m in messages:
         root.append(message_to_xml_element(m))
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+    return tostring(root, encoding="utf-8").decode("utf-8")
 
 
 def serialize_completions(completions: list[Completion]) -> str:
     """Serialize list of completions to XML string."""
-    root = ET.Element("completions")
+    root = Element("completions")
     for c in completions:
         root.append(completion_to_xml_element(c))
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+    return tostring(root, encoding="utf-8").decode("utf-8")
 
 
 def serialize_report(items: list[ReportItem]) -> str:
     """Serialize report items to XML string."""
-    root = ET.Element("report")
+    root = Element("report")
     for it in items:
-        sub = ET.SubElement(root, "item")
-        ET.SubElement(sub, "state").text = it.state
-        ET.SubElement(sub, "description").text = it.description
-        ET.SubElement(sub, "ip").text = it.ip
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+        sub = SubElement(root, "item")
+        SubElement(sub, "state").text = it.state
+        SubElement(sub, "description").text = it.description
+        SubElement(sub, "ip").text = it.ip
+    return tostring(root, encoding="utf-8").decode("utf-8")
 
 
 def serialize_action_status(status: str, detail: Optional[str] = None) -> str:
     """Serialize action status message to XML."""
-    root = ET.Element("response")
-    ET.SubElement(root, "status").text = status
+    root = Element("response")
+    SubElement(root, "status").text = status
     if detail is not None:
-        ET.SubElement(root, "detail").text = detail
-    return ET.tostring(root, encoding="utf-8").decode("utf-8")
+        SubElement(root, "detail").text = detail
+    return tostring(root, encoding="utf-8").decode("utf-8")
 
 
 def parse_xml_user(xml_text: str) -> dict:
     """Parse user payload dictionary from XML text."""
-    root = ET.fromstring(xml_text)
+    root = fromstring(xml_text)
     ip_node = root.find("ip")
     loc_node = root.find("locale")
     ip_val = ip_node.text if ip_node is not None and ip_node.text else ""
@@ -150,7 +150,7 @@ def parse_xml_user(xml_text: str) -> dict:
 
 def parse_xml_message(xml_text: str) -> dict:
     """Parse message payload dictionary from XML text."""
-    root = ET.fromstring(xml_text)
+    root = fromstring(xml_text)
     u_node = root.find("user")
     inp_node = root.find("input")
     d_node = root.find("description")
