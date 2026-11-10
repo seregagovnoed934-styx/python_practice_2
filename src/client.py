@@ -250,10 +250,40 @@ class ApiClient:
     _private_api_stable_user_query = private_api_stable_user_query
     _private_api_stable_message_insert = private_api_stable_message_insert
     _private_api_stable_message_del = private_api_stable_message_del
+    _private_api_stable_message_query = private_api_stable_message_query_user
     _private_api_stable_message_query_user = (
         private_api_stable_message_query_user
     )
-    _private_api_stable_comp_query_msg = (
+    _private_api_stable_completion_query = (
+        private_api_stable_completion_query_message
+    )
+    _private_api_stable_completion_query_message = (
         private_api_stable_completion_query_message
     )
     _private_api_stable_report_query = private_api_stable_report_query
+
+
+def main() -> None:
+    """Run standalone demonstration of ApiClient against running server."""
+    client = ApiClient()
+    task_json = (
+        '{"code": "460123456789", "output_pdf": "data/client_barcode.pdf"}'
+    )
+    try:
+        user = client._private_api_stable_user_insert("127.0.0.1", "ru-RU")
+        print("User saved:", user)
+        msg = client._private_api_stable_message_insert(
+            user=user["identifier"],
+            input_data=task_json,
+            description="Client barcode check",
+            triggered=1,
+        )
+        print("Message saved:", msg)
+        print("Users on server:", client._private_api_stable_user_query())
+        print("Report:", client._private_api_stable_report_query())
+    except urllib.error.URLError as exc:
+        print("Server connection error:", exc.reason)
+
+
+if __name__ == "__main__":
+    main()
