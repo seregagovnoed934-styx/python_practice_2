@@ -69,8 +69,11 @@ def run_cli_task(input_content: str) -> tuple[str, str, int, str]:
         with open(in_path, "w", encoding="utf-8") as f_in:
             f_in.write(input_content)
 
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         cmd = [sys.executable, "-m", "src.cli", "-i", in_path, "-o", out_path]
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        proc = subprocess.run(
+            cmd, cwd=root_dir, capture_output=True, text=True, check=False
+        )
         duration_ms = int((time.time() - start_t) * 1000)
 
         if proc.returncode == EXIT_SUCCESS and os.path.exists(out_path):
