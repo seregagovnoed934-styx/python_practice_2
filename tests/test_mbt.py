@@ -22,6 +22,9 @@ from src.config import (
     DEFAULT_HOST,
     DEFAULT_PASSWORD,
     DEFAULT_USERNAME,
+    MIN_TIMESTAMP,
+    ONE,
+    STATE_SUCCESS,
     STATUS_BAD_REQUEST,
     STATUS_UNAUTHORIZED,
     ZERO,
@@ -84,20 +87,42 @@ class ReferenceModel:
             del self.users[uid]
 
     def add_message(
-        self, mid: int, cid: int, user: int, desc: str, st_val: str
+        self, mid: int, cid: int, msg_data: dict[str, Any]
     ) -> None:
         """Track message and completion creation."""
-        self.messages[mid] = {"identifier": mid, "user": user, "desc": desc}
+        self.messages[mid] = {
+            "identifier": mid,
+            "user": msg_data["user"],
+            "input": msg_data["input"],
+            "description": msg_data["description"],
+            "triggered": msg_data["triggered"],
+        }
         self.completions[cid] = {
             "identifier": cid,
             "message": mid,
-            "state": st_val,
+            "state": msg_data["state"],
         }
 
     def delete_message(self, mid: int) -> None:
-        """Track message deletion."""
+        """Track message and cascade completion deletion."""
         if mid in self.messages:
             del self.messages[mid]
+        self.completions = {
+            cid: comp
+            for cid, comp in self.completions.items()
+            if comp["message"] != mid
+        }
+
+    def expected_report(self) -> list[tuple[str, str, str]]:
+        """Compute expected report tuples per Formula (15)."""
+        items: list[tuple[str, str, str]] = []
+        for mid, msg in self.messages.items():
+            user = self.users.get(msg["user"])
+            u_ip = user["ip"] if user is not None else ""
+            for comp in self.completions.values():
+                if comp["message"] == mid:
+                    items.append((comp["state"], msg["description"], u_ip))
+        return items
 
 
 class BaseApiStateMachine(RuleBasedStateMachine):
@@ -117,6 +142,33 @@ class BaseApiStateMachine(RuleBasedStateMachine):
         )
         self.model = ReferenceModel()
 
+    def _assert_message_insert(
+        self, user_id: int, sample_input: str, desc: str, triggered: int
+    ) -> int:
+        """Execute message insert and verify response against model."""
+        res = self.client.private_api_stable_message_insert(
+            user_id, sample_input, desc, triggered
+        )
+        mid = res["message_id"]
+        cid = res["completion_id"]
+        assert mid > ZERO
+        assert cid > ZERO
+        assert mid not in self.model.messages
+        assert cid not in self.model.completions
+        assert res["state"] == STATE_SUCCESS
+        self.model.add_message(
+            mid,
+            cid,
+            {
+                "user": user_id,
+                "input": sample_input,
+                "description": desc,
+                "triggered": triggered,
+                "state": res["state"],
+            },
+        )
+        return mid
+
     @rule(
         target=users,
         ip=st.ip_addresses().map(str),
@@ -127,6 +179,8 @@ class BaseApiStateMachine(RuleBasedStateMachine):
         u_data = self.client.private_api_stable_user_insert(ip, locale)
         uid = u_data["identifier"]
         assert uid > ZERO
+        assert uid not in self.model.users
+        assert u_data["time"] >= MIN_TIMESTAMP
         assert u_data["ip"] == ip
         assert u_data["locale"] == locale
         self.model.add_user(uid, ip, locale)
@@ -136,26 +190,40 @@ class BaseApiStateMachine(RuleBasedStateMachine):
     def rule_user_del(self, uid: int) -> None:
         """Test GET /private/api/stable/user/del."""
         res = self.client.private_api_stable_user_del(uid)
-        assert res["status"] in ("ok", "not_found")
+        expected = "ok" if uid in self.model.users else "not_found"
+        assert res["status"] == expected
         self.model.delete_user(uid)
 
     @rule(uid=users)
     def rule_user_query_by_id(self, uid: int) -> None:
         """Test GET /private/api/stable/user/query with identifier."""
         res = self.client.private_api_stable_user_query(identifier=uid)
-        assert isinstance(res, list)
+        if uid in self.model.users:
+            exp = self.model.users[uid]
+            assert len(res) == ONE
+            assert res[ZERO]["identifier"] == uid
+            assert res[ZERO]["ip"] == exp["ip"]
+            assert res[ZERO]["locale"] == exp["locale"]
+            assert res[ZERO]["time"] >= MIN_TIMESTAMP
+        else:
+            assert res == []
 
     @rule(ip=st.ip_addresses().map(str))
     def rule_user_query_by_ip(self, ip: str) -> None:
         """Test GET /private/api/stable/user/query with IP."""
         res = self.client.private_api_stable_user_query(ip=ip)
-        assert isinstance(res, list)
+        exp_ids = {
+            k for k, u in self.model.users.items() if u["ip"] == ip
+        }
+        got_ids = {u["identifier"] for u in res}
+        assert got_ids == exp_ids
 
     @rule()
     def rule_user_query_all(self) -> None:
         """Test GET /private/api/stable/user/query without arguments."""
         res = self.client.private_api_stable_user_query()
-        assert isinstance(res, list)
+        got_ids = {u["identifier"] for u in res}
+        assert got_ids == set(self.model.users.keys())
 
     @rule(
         target=messages,
@@ -178,15 +246,7 @@ class BaseApiStateMachine(RuleBasedStateMachine):
                 "output_pdf": "test_mbt_bar.pdf",
             }
         )
-        res = self.client.private_api_stable_message_insert(
-            user, sample_input, desc, triggered
-        )
-        mid = res["message_id"]
-        cid = res["completion_id"]
-        assert mid > ZERO
-        assert cid > ZERO
-        self.model.add_message(mid, cid, user, desc, res["state"])
-        return mid
+        return self._assert_message_insert(user, sample_input, desc, triggered)
 
     @rule(
         target=messages,
@@ -206,39 +266,59 @@ class BaseApiStateMachine(RuleBasedStateMachine):
                 "output_pdf": "test_mbt_orphan.pdf",
             }
         )
-        res = self.client.private_api_stable_message_insert(
-            fake_user, sample_input, desc, ZERO
-        )
-        mid = res["message_id"]
-        cid = res["completion_id"]
-        assert mid > ZERO
-        self.model.add_message(mid, cid, fake_user, desc, res["state"])
-        return mid
+        return self._assert_message_insert(fake_user, sample_input, desc, ZERO)
 
     @rule(mid=messages)
     def rule_message_del(self, mid: int) -> None:
         """Test GET /private/api/stable/message/del."""
         res = self.client.private_api_stable_message_del(mid)
-        assert res["status"] in ("ok", "not_found")
+        expected = "ok" if mid in self.model.messages else "not_found"
+        assert res["status"] == expected
         self.model.delete_message(mid)
 
     @rule(user=users)
     def rule_message_query_by_user(self, user: int) -> None:
         """Test GET /private/api/stable/message/query/:user."""
         res = self.client.private_api_stable_message_query_user(user)
-        assert isinstance(res, list)
+        exp_msgs = {
+            k: m
+            for k, m in self.model.messages.items()
+            if m["user"] == user
+        }
+        got_ids = {m["identifier"] for m in res}
+        assert got_ids == set(exp_msgs.keys())
+        for msg in res:
+            exp = exp_msgs[msg["identifier"]]
+            assert msg["user"] == exp["user"]
+            assert msg["input"] == exp["input"]
+            assert msg["description"] == exp["description"]
+            assert msg["triggered"] == exp["triggered"]
+            assert msg["time"] >= MIN_TIMESTAMP
 
     @rule(mid=messages)
     def rule_completion_query_by_msg(self, mid: int) -> None:
         """Test GET /private/api/stable/completion/query/:message."""
         res = self.client.private_api_stable_completion_query_message(mid)
-        assert isinstance(res, list)
+        exp_comps = {
+            k: c
+            for k, c in self.model.completions.items()
+            if c["message"] == mid
+        }
+        got_ids = {c["identifier"] for c in res}
+        assert got_ids == set(exp_comps.keys())
+        for comp in res:
+            exp = exp_comps[comp["identifier"]]
+            assert comp["message"] == mid
+            assert comp["state"] == exp["state"]
+            assert comp["time"] >= MIN_TIMESTAMP
 
     @rule()
     def rule_report_query(self) -> None:
         """Test GET /private/api/stable/report/query."""
         res = self.client.private_api_stable_report_query()
-        assert isinstance(res, list)
+        got = sorted((it["state"], it["description"], it["ip"]) for it in res)
+        exp = sorted(self.model.expected_report())
+        assert got == exp
 
     @rule()
     def rule_exercise_error_branches(self) -> None:
@@ -313,7 +393,12 @@ def teardown_module() -> None:
     pony_server_runner.stop()
     file_storage_instance.clear()
     pony_storage_instance.clear()
-    for fname in ("test_mbt_file.json", "test_mbt_pony.sqlite3"):
+    for fname in (
+        "test_mbt_file.json",
+        "test_mbt_pony.sqlite3",
+        "test_mbt_bar.pdf",
+        "test_mbt_orphan.pdf",
+    ):
         if os.path.exists(fname):
             try:
                 os.remove(fname)

@@ -30,8 +30,8 @@ def define_entities(db: Database) -> None:
         _table_ = "users"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        ip = orm.Optional(str, default="")
-        locale = orm.Optional(str, default="")
+        ip = orm.Optional(str, default="", autostrip=False)
+        locale = orm.Optional(str, default="", autostrip=False)
         messages = Set("MessageEntity")
 
     class MessageEntity(db.Entity):
@@ -40,10 +40,10 @@ def define_entities(db: Database) -> None:
         _table_ = "messages"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        input_data = orm.Optional(str, default="")
+        input_data = orm.Optional(str, default="", autostrip=False)
         user_id = Required(int)
         user = orm.Optional(UserEntity)
-        description = orm.Optional(str, default="")
+        description = orm.Optional(str, default="", autostrip=False)
         triggered = Required(int)
         completions = Set("CompletionEntity")
 
@@ -53,9 +53,9 @@ def define_entities(db: Database) -> None:
         _table_ = "completions"
         identifier = PrimaryKey(int, auto=True)
         time = Required(int)
-        result = orm.Optional(str, default="")
-        state = Required(str)
-        failure = orm.Optional(str, default="")
+        result = orm.Optional(str, default="", autostrip=False)
+        state = Required(str, autostrip=False)
+        failure = orm.Optional(str, default="", autostrip=False)
         message = Required(MessageEntity)
         cache_hit = Required(int)
         duration = Required(int)

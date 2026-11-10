@@ -136,6 +136,11 @@ class FileStorage:
         """Remove message by identifier."""
         if identifier in self.messages:
             del self.messages[identifier]
+            self.completions = {
+                cid: comp
+                for cid, comp in self.completions.items()
+                if comp.message != identifier
+            }
             self.save()
             return True
         return False
